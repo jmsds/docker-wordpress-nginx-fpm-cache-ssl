@@ -1,0 +1,32 @@
+version: '2'
+
+services:
+  test_app:
+    build: ./
+    # volumes:
+      # - /path/to/wp-content:/usr/share/nginx/www/wp-content
+    environment:
+      SERVER_NAME: "dev.testapp.com"
+    ports:
+      - "80:80"
+      - "443:443"
+    links:
+      - mysql:db
+    environment:
+      SERVER_NAME: dev.testapp.com
+      DB_HOSTNAME: mysql
+      DB_PASSWORD: wordpress
+      DB_USER: wordpress
+      DB_DATABASE: wordpress
+
+  mysql:
+    image: mariadb:10.1
+    ports:
+      - "3308:3306"
+    # volumes:
+      # - /path/to/mariadb/:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: wordpress
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress

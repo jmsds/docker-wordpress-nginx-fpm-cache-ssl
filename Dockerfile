@@ -59,9 +59,27 @@ RUN apt-get update && apt-get -y upgrade
 # - pwgen - Open-Source Password Generator
 # - python-setuptools - for `easy_install`
 #
+
+### ---- FIX -----
+# Fix 'add-apt-repository: not found' in Ubuntu 14.04 LTS
+RUN apt-get -y install software-properties-common \
+						python-software-properties
+
+### ---- FIX -----
+# Note: If your system's locale is set to anything other than UTF-8, adding the PPA may fail
+# due to a bug handling characters in the author's name. As a workaround, you can install
+# language-pack-en-base to make sure that locales are generated, and override system-wide
+# locale settings while adding the PPA:
+#
+# More info:
+# https://www.digitalocean.com/community/tutorials/how-to-upgrade-to-php-7-on-ubuntu-14-04
+# Enable php7 on ubuntu-14.04
+RUN apt-get install -y language-pack-en-base
+RUN LC_ALL=en_US.UTF-8 add-apt-repository ppa:ondrej/php && apt-get update -y && apt-get upgrade -y && apt-get autoremove
+
 RUN apt-get install -y mysql-client \
-						php5-fpm \
-						php5-mysql \
+						php7.0-fpm \
+						php7.0-mysql \
 						pwgen \
 						python-setuptools \
 						curl \
@@ -70,27 +88,23 @@ RUN apt-get install -y mysql-client \
 
 
 # **Wordpress** Dependencies
-RUN apt-get install -y php5-curl \
-						php5-gd \
-						php5-intl \
+RUN apt-get install -y php7.0-curl \
+						php7.0-gd \
+						php7.0-intl \
 						php-pear \
-						php5-imagick \
-						php5-imap \
-						php5-mcrypt \
-						php5-memcache \
-						php5-ming \
-						php5-ps \
-						php5-pspell \
-						php5-recode \
-						php5-sqlite \
-						php5-tidy \
-						php5-xmlrpc \
-						php5-xsl
-
-### ---- FIX -----
-# Fix 'add-apt-repository: not found' in Ubuntu 14.04 LTS
-RUN apt-get -y install software-properties-common \
-						python-software-properties
+						php7.0-imagick \
+						php7.0-imap \
+						php7.0-mcrypt \
+						php7.0-memcache \
+						php7.0-mbstring \
+						php7.0-ps \
+						php7.0-pspell \
+						php7.0-recode \
+						php7.0-sqlite \
+						php7.0-tidy \
+						php7.0-xmlrpc \
+						php7.0-xsl \
+						php7.0-redis
 
 
 # ----------------------------------------------------------
@@ -118,44 +132,50 @@ RUN add-apt-repository ppa:rtcamp/nginx && \
 # Create uer for Nginx running
 RUN adduser --system --no-create-home --shell /bin/false --group --disabled-login www-front
 
-# Copy config files to `/etc/nginx/` folder
+# COPY config files to `/etc/nginx/` folder
 COPY  config/nginx.conf /etc/nginx/nginx.conf
 
-COPY  config/nginx-site-http.conf /etc/nginx/nginx-site-http.conf
-COPY  config/nginx-site-https.conf /etc/nginx/nginx-site-https.conf
+COPY config/nginx-site-http.conf /etc/nginx/nginx-site-http.conf
+COPY config/nginx-site-https.conf /etc/nginx/nginx-site-https.conf
+
 # Default **site** config - HTTP
 # Later if need to enforce SSL, use `nginx-site-http.conf` instead.
-COPY  config/nginx-site-http.conf /etc/nginx/sites-available/default
+COPY config/nginx-site-http.conf /etc/nginx/sites-available/default
 
-COPY  config/nginx-ssl.conf /etc/nginx/ssl-template.conf
-COPY  config/nginx-restrictions.conf /etc/nginx/restrictions.conf
+COPY config/nginx-ssl.conf /etc/nginx/ssl-template.conf
+COPY config/nginx-restrictions.conf /etc/nginx/restrictions.conf
 
+
+# FIX
+# ERROR: unable to bind listening socket for address '/run/php/php7.0-fpm.sock': No such file or directory (2)
+# ERROR: FPM initialization failed
+RUN mkdir -p /run/php
 
 # ----------------------------------------------------------
 # PHP-fpm Config
 # ----------------------------------------------------------
 
 RUN sed -i -e "s/;cgi.fix_pathinfo\s*=\s*1/cgi.fix_pathinfo = 0/g; s/expose_php\s*=\s*On/expose_php = Off/g" \
-/etc/php5/fpm/php.ini
-RUN sed -i -e "s/expose_php\s*=\s*On/expose_php = Off/g" /etc/php5/fpm/php.ini
+/etc/php/7.0/fpm/php.ini
+RUN sed -i -e "s/expose_php\s*=\s*On/expose_php = Off/g" /etc/php/7.0/fpm/php.ini
 RUN sed -i -e "s/upload_max_filesize\s*=\s*2M/upload_max_filesize = 100M/g; s/post_max_size\s*=\s*8M/post_max_size = 100M/g" \
-/etc/php5/fpm/php.ini
-#RUN sed -i -e "s/post_max_size\s*=\s*8M/post_max_size = 100M/g" /etc/php5/fpm/php.ini
+/etc/php/7.0/fpm/php.ini
+#RUN sed -i -e "s/post_max_size\s*=\s*8M/post_max_size = 100M/g" /etc/php/7.0/fpm/php.ini
 
-RUN sed -i -e "s/;daemonize\s*=\s*yes/daemonize = no/g" /etc/php5/fpm/php-fpm.conf
+RUN sed -i -e "s/;daemonize\s*=\s*yes/daemonize = no/g" /etc/php/7.0/fpm/php-fpm.conf
 
-RUN sed -i -e "s/;catch_workers_output\s*=\s*yes/catch_workers_output = yes/g; s/listen\s*=\s*\/var\/run\/php5-fpm.sock/listen = 127.0.0.1:9000/g; s/;listen.allowed_clients\s*=\s*127.0.0.1/listen.allowed_clients = 127.0.0.1/g" \
-/etc/php5/fpm/pool.d/www.conf
-#RUN sed -i -e "s/listen\s*=\s*\/var\/run\/php5-fpm.sock/listen = 127.0.0.1:9000/g" /etc/php5/fpm/pool.d/www.conf
-#RUN sed -i -e "s/;listen.allowed_clients\s*=\s*127.0.0.1/listen.allowed_clients = 127.0.0.1/g" /etc/php5/fpm/pool.d/www.conf
+RUN sed -i -e "s/;catch_workers_output\s*=\s*yes/catch_workers_output = yes/g; s/listen\s*=\s*\/run\/php\/php7.0-fpm.sock/listen = 127.0.0.1:9000/g; s/;listen.allowed_clients\s*=\s*127.0.0.1/listen.allowed_clients = 127.0.0.1/g" \
+/etc/php/7.0/fpm/pool.d/www.conf
+#RUN sed -i -e "s/listen\s*=\s*\/var\/run\/php/7.0-fpm.sock/listen = 127.0.0.1:9000/g" /etc/php/7.0/fpm/pool.d/www.conf
+#RUN sed -i -e "s/;listen.allowed_clients\s*=\s*127.0.0.1/listen.allowed_clients = 127.0.0.1/g" /etc/php/7.0/fpm/pool.d/www.conf
 
 
 # ----------------------------------------------------------
 # Opcode Config
 # ----------------------------------------------------------
 
-RUN sed -i -e"s/^;opcache.enable\s*=\s*0/opcache.enable = 1/; s/^;opcache.max_accelerated_files\s*=\s*2000/opcache.max_accelerated_files = 4000/" /etc/php5/fpm/php.ini
-#RUN sed -i -e"s/^;opcache.max_accelerated_files\s*=\s*2000/opcache.max_accelerated_files = 4000/" /etc/php5/fpm/php.ini
+RUN sed -i -e"s/^;opcache.enable\s*=\s*0/opcache.enable = 1/; s/^;opcache.max_accelerated_files\s*=\s*2000/opcache.max_accelerated_files = 4000/" /etc/php/7.0/fpm/php.ini
+#RUN sed -i -e"s/^;opcache.max_accelerated_files\s*=\s*2000/opcache.max_accelerated_files = 4000/" /etc/php/7.0/fpm/php.ini
 
 
 # ===============================================================================
@@ -171,7 +191,7 @@ RUN sed -i -e"s/^;opcache.enable\s*=\s*0/opcache.enable = 1/; s/^;opcache.max_ac
 
 RUN /usr/bin/easy_install supervisor && \
 	/usr/bin/easy_install supervisor-stdout
-COPY  config/supervisord.conf /etc/supervisord.conf
+COPY config/supervisord.conf /etc/supervisord.conf
 
 
 
@@ -187,8 +207,8 @@ RUN cd /usr/share/nginx/ && \
 
 # Target **webroot** - `/usr/share/nginx/www`
 RUN rm -rf /usr/share/nginx/www && \
-	mv /usr/share/nginx/wordpress /usr/share/nginx/www && \
-	chown -R www-data:www-data /usr/share/nginx/www
+cp -r /usr/share/nginx/wordpress /usr/share/nginx/www && \
+	  chown -R www-data:www-data /usr/share/nginx/www
 
 
 
@@ -214,12 +234,15 @@ CMD ["/bin/bash", "/init.sh"]
 # @link https://letsencrypt.org/ | letsencrypt
 COPY bash/ssl-letsencrypt.sh /addon/letsencrypt/ssl-letsencrypt.sh
 
+# COPY letsencrypt addons
+COPY config/addon/letsencrypt-le.ini /letsencrypt-le.ini
+COPY config/addon/nginx-acme.challenge.le.conf /nginx-acme.challenge.le.conf
+
 # Normal SSL related
 COPY bash/ssl.sh /addon/ssl.sh
 
 # Install WP plugins
 COPY bash/wp-install-plugins.sh /addon/wp-install-plugins.sh
-
 
 # ===============================================================================
 # Volume Mounting
@@ -230,4 +253,3 @@ COPY bash/wp-install-plugins.sh /addon/wp-install-plugins.sh
 
 # Mount the volumns
 VOLUME ["/usr/share/nginx/www", "/var/log"]
-
